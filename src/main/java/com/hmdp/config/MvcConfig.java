@@ -18,7 +18,7 @@ import javax.annotation.Resource;
  * @date 2022/10/07
  */
 @Configuration
-public class MvcConfig implements WebMvcConfigurer {
+public class MvcConfig implements WebMvcConfigurer  {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
@@ -34,6 +34,7 @@ public class MvcConfig implements WebMvcConfigurer {
                         , "/shop-type/**"
                         , "/upload/**"
                         , "/voucher/**"
+                        ,"/voucher/seckill"
                 )
                 .order(1);
         //Token续命拦截器
