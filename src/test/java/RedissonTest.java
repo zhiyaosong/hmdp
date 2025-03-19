@@ -20,7 +20,6 @@ public class RedissonTest {
     public void getRlock(){
         rLock=redissonClient.getLock("lock");
     }
-
     @Test
     public void method1() throws InterruptedException {
         boolean isLock = rLock.tryLock(1L, TimeUnit.SECONDS);

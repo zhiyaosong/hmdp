@@ -36,6 +36,4 @@ public class LoginInterceptor implements HandlerInterceptor {
         //存在用户放行
         return true;
     }
-
-
 }
