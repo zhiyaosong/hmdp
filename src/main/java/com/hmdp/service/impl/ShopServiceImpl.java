@@ -1,20 +1,30 @@
 package com.hmdp.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.github.benmanes.caffeine.cache.Cache;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
 import com.hmdp.service.IShopService;
 import com.hmdp.utils.CacheClient;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 import javax.annotation.Resource;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.utils.RedisConstants.*;
+
+
+
 
 /**
  * <p>
@@ -24,28 +34,68 @@ import static com.hmdp.utils.RedisConstants.*;
  * @author 虎哥
  * @since 2021-12-22
  */
+@Slf4j
 @Service
 public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IShopService {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private CacheClient cacheClient;
+    @Resource
+    private Cache<String,Object> caffeineCache;
 
-    @Override
-    public Result queryById(Long id) {
-        //缓存穿透
-        //Shop shop = queryWithPassThrough(id);
-        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
-        //互斥锁解决缓存击穿
-//        Shop shop = queryWithMutex(id);
-        //逻辑过期解决缓存击穿
-//        Shop shop = queryWithLogicalExpire(id);
-        //Shop shop = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
-        if (shop == null) {
-            return Result.fail("店铺不存在");
+    //@Cacheable(value = "shop",key = "#id")/
+
+    /**
+     * Caffine+Redis多级缓存
+     * @param id id
+     * @return
+     */
+    public Result queryById(Long id){
+        //1.从Caffeine中查询数据
+        Object o = caffeineCache.getIfPresent(CACHE_SHOP_KEY + id);
+        if(Objects.nonNull(o)){
+            log.info("从Caffeine中查询到数据...");
+            return Result.ok( o);
         }
+
+        //缓存穿透
+        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY,id,Shop.class,this::getById,CACHE_SHOP_TTL,TimeUnit.MINUTES);
+        if(shop != null){
+            log.info("从Redis中查到数据");
+            caffeineCache.put(CACHE_SHOP_KEY+id,shop);
+        }
+
+
+        if(shop == null){
+            return Result.fail("店铺不存在！");
+        }
+
+        //7.返回数据
         return Result.ok(shop);
     }
+
+
+//    /**
+//     * 原始queryByid
+//     * @param id id
+//     * @return
+//     */
+//    @Override
+//    public Result queryById(Long id) {
+//        //缓存穿透
+//        //Shop shop = queryWithPassThrough(id);
+//        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
+//        //互斥锁解决缓存击穿
+////        Shop shop = queryWithMutex(id);
+//        //逻辑过期解决缓存击穿
+////        Shop shop = queryWithLogicalExpire(id);
+//        //Shop shop = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
+//        if (shop == null) {
+//            return Result.fail("店铺不存在");
+//        }
+//        return Result.ok(shop);
+//    }
 
     /**
      * 互斥锁解决缓存击穿
