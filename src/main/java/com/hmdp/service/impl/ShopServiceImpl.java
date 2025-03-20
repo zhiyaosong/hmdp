@@ -46,56 +46,56 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
 
     //@Cacheable(value = "shop",key = "#id")/
 
-    /**
-     * Caffine+Redis多级缓存
-     * @param id id
-     * @return
-     */
-    public Result queryById(Long id){
-        //1.从Caffeine中查询数据
-        Object o = caffeineCache.getIfPresent(CACHE_SHOP_KEY + id);
-        if(Objects.nonNull(o)){
-            log.info("从Caffeine中查询到数据...");
-            return Result.ok( o);
-        }
-
-        //缓存穿透
-        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY,id,Shop.class,this::getById,CACHE_SHOP_TTL,TimeUnit.MINUTES);
-        if(shop != null){
-            log.info("从Redis中查到数据");
-            caffeineCache.put(CACHE_SHOP_KEY+id,shop);
-        }
-
-
-        if(shop == null){
-            return Result.fail("店铺不存在！");
-        }
-
-        //7.返回数据
-        return Result.ok(shop);
-    }
-
-
 //    /**
-//     * 原始queryByid
+//     * Caffine+Redis多级缓存
 //     * @param id id
 //     * @return
 //     */
-//    @Override
-//    public Result queryById(Long id) {
-//        //缓存穿透
-//        //Shop shop = queryWithPassThrough(id);
-//        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
-//        //互斥锁解决缓存击穿
-////        Shop shop = queryWithMutex(id);
-//        //逻辑过期解决缓存击穿
-////        Shop shop = queryWithLogicalExpire(id);
-//        //Shop shop = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
-//        if (shop == null) {
-//            return Result.fail("店铺不存在");
+//    public Result queryById(Long id){
+//        //1.从Caffeine中查询数据
+//        Object o = caffeineCache.getIfPresent(CACHE_SHOP_KEY + id);
+//        if(Objects.nonNull(o)){
+//            log.info("从Caffeine中查询到数据...");
+//            return Result.ok( o);
 //        }
+//
+//        //缓存穿透
+//        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY,id,Shop.class,this::getById,CACHE_SHOP_TTL,TimeUnit.MINUTES);
+//        if(shop != null){
+//            log.info("从Redis中查到数据");
+//            caffeineCache.put(CACHE_SHOP_KEY+id,shop);
+//        }
+//
+//
+//        if(shop == null){
+//            return Result.fail("店铺不存在！");
+//        }
+//
+//        //7.返回数据
 //        return Result.ok(shop);
 //    }
+
+
+    /**
+     * 原始queryByid
+     * @param id id
+     * @return
+     */
+    @Override
+    public Result queryById(Long id) {
+        //缓存穿透
+        //Shop shop = queryWithPassThrough(id);
+        Shop shop = cacheClient.queryWithPassThrough(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        //互斥锁解决缓存击穿
+//        Shop shop = queryWithMutex(id);
+        //逻辑过期解决缓存击穿
+//        Shop shop = queryWithLogicalExpire(id);
+        //Shop shop = cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY, id, Shop.class, this::getById, CACHE_SHOP_TTL, TimeUnit.MINUTES);
+        if (shop == null) {
+            return Result.fail("店铺不存在");
+        }
+        return Result.ok(shop);
+    }
 
     /**
      * 互斥锁解决缓存击穿
